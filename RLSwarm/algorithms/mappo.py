@@ -76,8 +76,8 @@ class MAPPO:
             clip_epsilon=clip_epsilon,
             entropy_bonus=True,
             loss_critic_type="l2",
-            entropy_coef=c2,
-            critic_coef=c1,
+            entropy_coeff=c2,
+            critic_coeff=c1,
             normalize_advantage=False,
             safe=True  # This tells the loss to ignore "next" keys automatically
         )

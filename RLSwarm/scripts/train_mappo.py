@@ -16,13 +16,13 @@ from tensordict.nn import TensorDictModule
 def main():
     # --- Configuration ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    base_name = "discrete_mappo_v1"
     json_path = os.path.join(os.path.dirname(__file__), 'reset_positions.json')
     swarm_config = SwarmConfig.from_json(json_path)
     n_agents = swarm_config.n_agents
     swarm_config.max_steps = 1000 # Longer episodes for meaningful collection
     # Initialize environment directly (no GymWrapper needed)
-    base_env = SwarmTorchEnv(config=swarm_config, device=device)
+    base_env = SwarmTorchEnv(config=swarm_config, device=device,training_file=f"{base_name}_env_log.json")
     env = TransformedEnv(base_env, transform=RewardSum() )
     #check_env_specs(base_env)
     
@@ -93,7 +93,7 @@ def main():
         batch_size=64,
         n_agents=n_agents,
         frames_per_batch=4096, # Increased for better learning
-        model_name="mappo_swarm_v1",
+        model_name=base_name,
         checkpoint_interval=5
     )
 
@@ -113,8 +113,8 @@ def main():
     os.makedirs(model_dir, exist_ok=True)
     
     # Save the state_dict of the actual networks into the 'models' directory
-    torch.save(policy.state_dict(), os.path.join(model_dir, 'mappo_policy.pth'))
-    torch.save(critic_net.state_dict(), os.path.join(model_dir, 'mappo_critic.pth'))
+    torch.save(policy.state_dict(), os.path.join(model_dir, f'{base_name}_policy.pth'))
+    torch.save(critic_net.state_dict(), os.path.join(model_dir, f'{base_name}_critic.pth'))
     print(f"Models saved in '{model_dir}' directory!")
 
 if __name__ == "__main__":
