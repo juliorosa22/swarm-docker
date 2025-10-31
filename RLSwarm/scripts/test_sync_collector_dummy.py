@@ -10,7 +10,7 @@ from torchrl.envs import GymWrapper
 from torch import nn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from envs.full_swarm import FullSwarmGymEnv  # Use the new full swarm env
+from RLSwarm.envs.deprecated.full_swarm import FullSwarmGymEnv  # Use the new full swarm env
 from envs.swarm_config import SwarmConfig
 
 class DummyPolicy(nn.Module):

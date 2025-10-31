@@ -3,7 +3,7 @@ from typing import List, Tuple, Optional, Dict, Any
 import random
 import json
 import numpy as np  # Ensure this is imported for _generate_inverted_v_positions
-from .uav_config import UAVConfig
+from .deprecated.uav_config import UAVConfig
 
 @dataclass
 class SwarmConfig:

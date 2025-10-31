@@ -3,10 +3,10 @@ import os
 from gymnasium.utils.env_checker import check_env
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append('C:\\Users\\julio\\OneDrive\\Documents\\Programming\\Drones\\Airsim\\PythonClient')
-from envs.uav import UAVGymEnv
-from envs.swarm import SwarmGymEnv
+from RLSwarm.envs.deprecated.uav import UAVGymEnv
+from RLSwarm.envs.deprecated.swarm import SwarmGymEnv
 from envs.swarm_config import SwarmConfig
-from envs.uav_config import UAVConfig
+from RLSwarm.envs.deprecated.uav_config import UAVConfig
 import airsim
 import numpy as np
 

@@ -10,7 +10,7 @@ from torchrl.modules import MultiAgentMLP
 from torch import nn
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from envs.rl_swarm_env import RLSwarmEnv
+from RLSwarm.envs.deprecated.rl_swarm_env import RLSwarmEnv
 from envs.swarm_config import SwarmConfig
 
 class DecentralizedPolicy(nn.Module):

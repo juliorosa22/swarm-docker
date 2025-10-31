@@ -29,6 +29,7 @@ class SwarmTorchEnv(EnvBase):
         frame_skip_duration: float = 0.5,
         use_lidar: bool = False,
         device: Optional[str] = "cuda" if torch.cuda.is_available() else "cpu",
+        training_file: Optional[str] = "training_log_torch.json",
     ):
         super().__init__(device=device)
         print("using device:", self.device)
@@ -404,9 +405,9 @@ class SwarmTorchEnv(EnvBase):
         
         # --- Save the complete log for all episodes ---
         try:
-            with open("training_log_torch.json", "w") as f:
+            with open(self.training_file, "w") as f:
                 json.dump(self.episode_collision_log, f, indent=4)
-            print(f"Successfully saved training log for {len(self.episode_collision_log)} episodes to training_log_torch.json")
+            print(f"Successfully saved training log for {len(self.episode_collision_log)} episodes to {self.training_file}")
         except Exception as e:
             print(f"Error saving training log: {e}")
 

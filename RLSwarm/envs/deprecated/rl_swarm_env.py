@@ -3,7 +3,7 @@ from torchrl.envs import GymWrapper
 import numpy as np
 from .swarm import SwarmGymEnv
 from gymnasium import spaces
-from .swarm_config import SwarmConfig
+from ..swarm_config import SwarmConfig
 from tensordict import TensorDict
 import time
 

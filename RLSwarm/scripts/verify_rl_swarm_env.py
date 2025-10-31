@@ -7,7 +7,7 @@ from torchrl.envs.utils import check_env_specs
 from torchrl.modules import TensorDictModule
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from envs.rl_swarm_env import RLSwarmEnv
+from RLSwarm.envs.deprecated.rl_swarm_env import RLSwarmEnv
 from envs.swarm_config import SwarmConfig
 from algorithms.mappo import MAPPO  # Import MAPPO for integration test
 from policies.centralized_critic import CentralizedCritic

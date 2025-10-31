@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union, Any
 from gymnasium import spaces
-from ..airsim_env import AirSimEnv
+from .airsim_env import AirSimEnv
 import sys
 import asyncio  # Ensure this is imported for async handling
 sys.path.append('C:\\Users\\julio\\OneDrive\\Documents\\Programming\\Drones\\Airsim\\PythonClient')

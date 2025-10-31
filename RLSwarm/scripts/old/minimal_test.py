@@ -5,7 +5,7 @@ from tensordict import TensorDict
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from envs.uav import UAVEnv
+from RLSwarm.envs.deprecated.uav import UAVEnv
 import airsim
 
 # Import our manual collector

@@ -4,7 +4,7 @@ from gymnasium import spaces
 from typing import Dict, List, Tuple, Optional, Union, Any
 import airsim
 from .swarm import SwarmGymEnv  # Import the base class
-from .swarm_config import SwarmConfig
+from ..swarm_config import SwarmConfig
 from .uav_config import UAVConfig
 import time
 

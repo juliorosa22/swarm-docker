@@ -5,7 +5,7 @@ from gymnasium import spaces
 import airsim
 import time
 import json
-from .swarm_config import SwarmConfig
+from ..swarm_config import SwarmConfig
 from typing import List
 
 class FastSwarmEnv(gym.Env):
