@@ -1,0 +1,68 @@
+I want your help to build a MARL framework with a actor-critic CTDE policy for controlling a UAV Swarm, the main goal is to 
+develop a scalable policy that can handle the partial observability and more number of agents than used in the traning. The overall system specification will be something like that:
+feel free to improve or make necessary adjustments
+Enviroment specification:
+    #user defined parameters
+        n_agents: int
+        action_type: string #continous or discrete user defined 
+        start_positions: (x,y,z) for each agent start position
+        end_positions: (x,y,z) for each agent final position
+    observation space: 
+        depth image: 64x64
+        drone position: 3 -(x,y,z)
+        drone rotation: 3 -(roll,pitch,yaw)
+        drone velocity: 3 - (vx,vy,vz)
+        target_distance: l2 norm distance between current position and target position
+        front_obs_distance: front distance between agent and nearest obstacle get from uav sensor
+        #observation obtained from communication between then, set as Inf in case there is no reacheable neighboor
+        closest_neighboor drone1: 3 - (x1,y1,z1)
+        closest_neighboor drone2: 3 - (x2,y2,z2) 
+
+    action_space:
+        continous:
+            vx: range [-1,10]# m/s
+            vy: range [-1,10]# m/s
+            vz: range [-1,1]# m/s
+            yaw_increment: range[-10,10] #degrees
+
+
+    reward specification:# the same reward will be used for all agents
+        #The lidar is used just in reward, its not included on observation space
+        distance_pen: penalty or reward applied based on difference of distance  between current and the end_position calculated in two consecutively observations
+        swarm_factor: penalty when the drone is too far >5m or too close <2m to its neighboors, when there is no information about anyone neighboor make it 0
+        obstacle_factor: penalty when the drone is too close to some obstacle < 2m by getting readings from lidar
+        reward = distance_pen+swarm_factor+obstacle_factor
+ 
+ 
+    step:
+        step only the drones hasn't set its done flag
+        act_policy(action)
+        shared_pos
+        stop simulation before getting the observation
+        obs=get_observation
+        computes the reward for all agents
+        monitor the number of collisions
+        by using the shared information compute the maximum distance between the agents and monitor
+        the done flag is separeted for each agent
+        the done is set when a agent is whitin a 1m range from its end_position
+        truncate the simulation and resets when the more average distance between the agents are higher than 10m
+        resume simulation
+        stop when all done flags are set
+
+
+Policy Especification
+- feel free to improve or make necessary adjustments
+    policy_network:
+        decentralized
+        the policy will get as input only the partial observation
+        shared weights for all agents
+        conv layer for image feature extraction
+        concat conv image and vector features 
+        lstm layer 
+        FC layer to map to action space
+    
+    critic_network:
+        centralized
+        shared weights
+        Use GAT (graph attention to model inter swarm distances) and handle a variable swarm size
+

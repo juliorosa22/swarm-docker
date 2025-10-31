@@ -1,0 +1,160 @@
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional, Dict, Any
+import random
+import json
+import numpy as np  # Ensure this is imported for _generate_inverted_v_positions
+from .uav_config import UAVConfig
+
+@dataclass
+class SwarmConfig:
+    """Configuration class for Swarm parameters, using UAVConfig for UAV-specific settings."""
+    
+    # General swarm settings
+    n_agents: int = 5
+    max_steps: int = 500
+    
+    # Shared UAV parameters (used to create UAVConfig for each agent)
+    action_type: str = "discrete"
+    observation_img_size: Tuple[int, int] = (64, 64)
+    obstacle_threshold: float = 2.0
+    goal_threshold: float = 1.0
+    max_target_distance: Optional[float] = None
+    max_obstacle_distance: float = 50.0
+    
+    # Position-related (can be auto-generated or provided)
+    start_positions: Optional[List[Tuple[float, float, float]]] = None
+    end_positions: Optional[List[Tuple[float, float, float]]] = None
+    
+    # Swarm-specific parameters
+    min_distance_threshold: float = 2.0
+    max_formation_distance: float = 20.0
+    safety_penalty_weight: float = 0.7
+    formation_bonus_weight: float = 1.0
+    coordination_bonus_weight: float = 0.6
+    max_safety_penalty: float = 1.2
+
+    # Return full swarm obs like a list of all agents' obs
+    return_full_swarm_obs: bool = True
+    
+    # Reset leader configuration from reset_positions.json
+    reset_leader: Optional[Dict[str, Any]] = None
+    
+    @classmethod
+    def get_random_leader_positions(cls, reset_leader) -> Tuple[float, float]:
+        """Get random x_leader and y_leader from reset_leader configuration."""
+        if reset_leader is None:
+            return 0.0, 0.0  # Default values
+        
+        # Select a random area
+        areas = list(reset_leader.keys())
+        selected_area = random.choice(areas)
+        print(f"Selected area: {selected_area}")
+        area_data = reset_leader[selected_area]
+        
+        # Select random x_leader and y_leader from the lists
+        x_leader = random.choice(area_data['x_leader'])
+        y_leader = random.choice(area_data['y_leader'])
+        
+        return x_leader, y_leader
+    
+    @classmethod
+    def _generate_inverted_v_positions(cls, n_agents: int, y_leader: int, x_leader: int, y_offset: float = 0.0):
+        """Generate positions for inverted V formation based on y_leader and y_offset."""
+        positions = []
+        z = -10.0  # Fixed z-coordinate
+        leader_idx = n_agents // 2  # Use n_agents parameter instead of self.config.n_agents
+        y_base = float(y_leader) + y_offset
+        
+        # Leader position
+        positions.append((x_leader, y_base, z))
+        
+        # Left drones (indices < leader_idx)
+        for i in range(leader_idx):
+            # Calculate position to form inverted V arm
+            step = 4.0  # Step size for ~4m distance
+            x_offset = -(leader_idx - i) * step + np.random.uniform(-0.5, 0.5)  # Random offset
+            y_offset_val = (leader_idx - i) * step + np.random.uniform(-0.5, 0.5)
+            x = x_leader + x_offset
+            y = y_base + y_offset_val
+            # Ensure constraints: x < x_leader, y > y_base
+            x = min(x, x_leader - 0.1)
+            y = max(y, y_base + 0.1)
+            positions.insert(0, (x, y, z))  # Insert at beginning for correct order
+        
+        # Right drones (indices > leader_idx)
+        for i in range(leader_idx + 1, n_agents):
+            # Calculate position to form inverted V arm
+            step = 4.0
+            x_offset = (i - leader_idx) * step + np.random.uniform(-0.5, 0.5)
+            y_offset_val = (i - leader_idx) * step + np.random.uniform(-0.5, 0.5)
+            x = x_leader + x_offset
+            y = y_base + y_offset_val
+            # Ensure constraints: x > x_leader, y > y_base
+            x = max(x, x_leader + 0.1)
+            y = max(y, y_base + 0.1)
+            positions.append((x, y, z))
+        
+        return positions
+    
+    @classmethod
+    def from_json(cls, json_path: str) -> 'SwarmConfig':
+        """Create a SwarmConfig instance from a JSON file."""
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+        
+        # Get n_agents from JSON or default
+        n_agents = data.get('n_agents', 5)
+        print("Number of agents:", n_agents)
+        # Get leader positions using the classmethod (now correctly uses reset_leader from data)
+        reset_leader = data.get('reset_leader')
+        x_leader, y_leader = cls.get_random_leader_positions(reset_leader) if reset_leader else (0, 0)
+        
+        # Generate or extract start positions (now uses random leader positions)
+        if 'start_positions' in data:
+            start_positions = [tuple(pos) for pos in data['start_positions']]
+        else:
+            start_positions = cls._generate_inverted_v_positions(n_agents, y_leader, x_leader, y_offset=0.0)
+        
+        # Generate or extract end positions (now uses random leader positions with -80m offset)
+        if 'end_positions' in data:
+            end_positions = [tuple(pos) for pos in data['end_positions']]
+        else:
+            end_positions = cls._generate_inverted_v_positions(n_agents, y_leader, x_leader, y_offset=-80.0)
+        
+        # Ensure n_agents matches positions
+        if len(start_positions) != n_agents:
+            n_agents = len(start_positions)
+        
+        return cls(
+            n_agents=n_agents,
+            start_positions=start_positions,
+            end_positions=end_positions,
+            reset_leader=reset_leader
+        )
+    
+    def create_uav_configs(self) -> List[UAVConfig]:
+        """Generate a list of UAVConfig instances for each agent."""
+        if self.start_positions is None:
+            self.start_positions = [(i * 5.0, 0.0, -2.0) for i in range(self.n_agents)]
+        if self.end_positions is None:
+            self.end_positions = [(i * 5.0, 50.0, -2.0) for i in range(self.n_agents)]
+        
+        assert len(self.start_positions) == self.n_agents, "start_positions must match n_agents"
+        assert len(self.end_positions) == self.n_agents, "end_positions must match n_agents"
+        
+        uav_configs = []
+        for i in range(self.n_agents):
+            uav_config = UAVConfig(
+                drone_name=f"uav{i}",
+                start_position=self.start_positions[i],
+                end_position=self.end_positions[i],
+                action_type=self.action_type,
+                observation_img_size=self.observation_img_size,
+                obstacle_threshold=self.obstacle_threshold,
+                goal_threshold=self.goal_threshold,
+                max_target_distance=self.max_target_distance,
+                max_obstacle_distance=self.max_obstacle_distance,
+                max_steps=self.max_steps  # Shared max_steps
+            )
+            uav_configs.append(uav_config)
+        return uav_configs

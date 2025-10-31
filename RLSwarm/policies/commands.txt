@@ -1,0 +1,9 @@
+Create a script for that uses the #sym:MAPPO class as the MARL algorithm, and follow these points:
+1 - Use the #file:decentralized_policy.py for the agent policy, remember that this policy share its weights between the agents.
+2 - Use the #file:centralized_critic.py for the critic network.
+3 - Wrap both the policy and critic in the TensorDict Module 
+
+Make necessary adjustments to this policy:
+1-  Make sure the policy input and output matchers the agents observation specs and the action from the #file:rl_swarm_env.py.
+2 - Pay attention on how the Unpacking of the TensorDict must be based on the #sym:_step . Mainly on the keys used to unpack the dict.
+3 - Provide some feasible  size dimension for the parameter from hidden.

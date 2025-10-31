@@ -1,0 +1,266 @@
+[
+    {
+        "episode_number": 1,
+        "episode_collisions": [
+            1,
+            1,
+            1,
+            1,
+            1
+        ],
+        "steps_in_episode": 26
+    },
+    {
+        "episode_number": 2,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 12
+    },
+    {
+        "episode_number": 3,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 31
+    },
+    {
+        "episode_number": 4,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 30
+    },
+    {
+        "episode_number": 5,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 17
+    },
+    {
+        "episode_number": 6,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 27
+    },
+    {
+        "episode_number": 7,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 24
+    },
+    {
+        "episode_number": 8,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 22
+    },
+    {
+        "episode_number": 9,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 19
+    },
+    {
+        "episode_number": 10,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 8
+    },
+    {
+        "episode_number": 11,
+        "episode_collisions": [
+            2,
+            2,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 34
+    },
+    {
+        "episode_number": 12,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 16
+    },
+    {
+        "episode_number": 13,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 19
+    },
+    {
+        "episode_number": 14,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 24
+    },
+    {
+        "episode_number": 15,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 10
+    },
+    {
+        "episode_number": 16,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 29
+    },
+    {
+        "episode_number": 17,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 33
+    },
+    {
+        "episode_number": 18,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 13
+    },
+    {
+        "episode_number": 19,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 45
+    },
+    {
+        "episode_number": 20,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            1,
+            1
+        ],
+        "steps_in_episode": 39
+    },
+    {
+        "episode_number": 21,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 17
+    },
+    {
+        "episode_number": 22,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 18
+    },
+    {
+        "episode_number": 23,
+        "episode_collisions": [
+            0,
+            0,
+            2,
+            2,
+            0
+        ],
+        "steps_in_episode": 31
+    },
+    {
+        "episode_number": 24,
+        "episode_collisions": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "steps_in_episode": 3
+    }
+]
