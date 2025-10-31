@@ -1,0 +1,44 @@
+services:
+  unreal:
+    build:
+      context: .
+      dockerfile: Dockerfile.unreal
+    image: ue-airsim:4.27
+    container_name: ue4-gpu
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=${DISPLAY}
+      - XDG_RUNTIME_DIR=/tmp/runtime-ue4
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/runtime-ue4:/tmp/runtime-ue4:rw
+      - ./settings.json:/home/ue4/Documents/AirSim/settings.json
+    devices:
+      - /dev/dri
+    ports:
+      - "41451:41451"     # AirSim RPC port
+    command: ["/bin/bash"]
+    tty: true
+    stdin_open: true
+
+  torchrl:
+    build:
+      context: .
+      dockerfile: Dockerfile.torchrl
+    image: torchrl-airsim
+    container_name: torchrl-agent
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./RLSwarm:/home/torchrl/RLSwarm
+      - ./training:/workspace
+    depends_on:
+      - unreal
+    # share network with Unreal so AirSim is reachable at localhost:41451
+    network_mode: "service:unreal"
+    tty: true
+    stdin_open: true

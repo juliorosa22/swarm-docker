@@ -1,0 +1,50 @@
+# Unreal Engine 4.27 base image
+FROM ghcr.io/epicgames/unreal-engine:dev-4.27
+
+# Switch to root for installations
+USER root
+
+# ---------------------------------------------------------------------------
+# 1. Install Vulkan + OpenGL utilities and Git (for AirSim)
+# ---------------------------------------------------------------------------
+RUN apt-get update && \
+    apt-get install -y sudo --no-install-recommends \
+        libvulkan1 \
+        nano \
+        vulkan-utils \
+        mesa-utils \
+        git && \
+    rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# 2. Clone AirSim repository
+# ---------------------------------------------------------------------------
+WORKDIR /home/ue4
+RUN git clone https://github.com/microsoft/AirSim.git
+RUN chown -R ue4:ue4 /home/ue4/AirSim
+RUN echo "ue4 ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# ---------------------------------------------------------------------------
+# 3. Build AirSim plugin non-interactively
+# ---------------------------------------------------------------------------
+USER ue4
+WORKDIR /home/ue4/AirSim
+RUN ./setup.sh && ./build.sh
+
+# ---------------------------------------------------------------------------
+# 4. Expose the AirSim RPC port (default 41451)
+# ---------------------------------------------------------------------------
+EXPOSE 41451
+
+# ---------------------------------------------------------------------------
+# 5. Set working directory and switch back to UE4 user
+# ---------------------------------------------------------------------------
+WORKDIR /home/ue4
+COPY Alpha.zip /home/ue4/
+RUN unzip Alpha.zip && rm Alpha.zip
+RUN rm -rf /home/ue4/Alpha/Plugins && \
+    cp -r /home/ue4/AirSim/Unreal/Environments/Blocks/Plugins /home/ue4/Alpha/
+# ---------------------------------------------------------------------------
+# 6. Default command
+# ---------------------------------------------------------------------------
+CMD ["/bin/bash"]

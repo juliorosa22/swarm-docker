@@ -1,0 +1,268 @@
+{
+  "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/main/docs/settings.md",
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "RpcEnabled": true,
+  "LocalHostIp": "0.0.0.0",
+  "ApiServerPort": 41451,
+  "ClockSpeed": 5.0,
+  "ViewMode": "FlyWithMe",
+  "PhysicsEngineName": "FastPhysicsEngine",
+  "Vehicles": {
+    "uav0": {
+      "VehicleType": "SimpleFlight",
+      "X": -3.5, "Y": 3, "Z": -2, 
+      "AutoCreate": true,
+      "Cameras":{
+        "front-center":{
+          "CaptureSettings":[
+            {
+              "ImageType": 3,
+              "Width": 64,
+              "Height": 64,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "DistanceSensor1": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor2": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": -0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor3": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    },
+    "uav1": {
+      "VehicleType": "SimpleFlight",
+      "X": -2, "Y": 1.5, "Z": -2,
+      "AutoCreate": true,
+      "Cameras":{
+        "front-center":{
+          "CaptureSettings":[
+            {
+              "ImageType": 3,
+              "Width": 64,
+              "Height": 64,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "DistanceSensor1": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor2": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": -0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor3": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    },
+    "uav2": {
+      "VehicleType": "SimpleFlight",
+      "X": 0, "Y": 0, "Z": -2,
+      "AutoCreate": true,
+      "Cameras":{
+        "front-center":{
+          "CaptureSettings":[
+            {
+              "ImageType": 3,
+              "Width": 64,
+              "Height": 64,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "DistanceSensor1": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor2": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": -0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor3": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    },
+    "uav3": {
+      "VehicleType": "SimpleFlight",
+      "X": 2, "Y": 1.5, "Z": -2,
+      "AutoCreate": true,
+      "Cameras":{
+        "front-center":{
+          "CaptureSettings":[
+            {
+              "ImageType": 3,
+              "Width": 64,
+              "Height": 64,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "DistanceSensor1": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor2": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": -0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor3": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    },
+    "uav4": {
+      "VehicleType": "SimpleFlight",
+      "X": 3.5, "Y": 3, "Z": -2,
+      "AutoCreate": true,
+      "Cameras":{
+        "front-center":{
+          "CaptureSettings":[
+            {
+              "ImageType": 3,
+              "Width": 64,
+              "Height": 64,
+              "FOV_Degrees": 90
+            }
+          ],
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "DistanceSensor1": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor2": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": -0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        },
+        "DistanceSensor3": {
+          "SensorType": 5,
+          "Enabled": true,
+          "MaxDistance": 50.0,
+          "MinDistance": 0.1,
+          "X": 0.5, "Y": 0.3, "Z": -0.1,
+          "Roll": 0, "Pitch": 0, "Yaw": 0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame"
+        }
+      }
+    }
+  }
+}

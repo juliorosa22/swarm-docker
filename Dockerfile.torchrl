@@ -1,0 +1,39 @@
+# Base image: PyTorch 2.5.1 + CUDA 12.4 + Python 3.9
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+# Use root for installations
+USER root
+
+# Install basic dev tools and pip dependencies
+# Install Git and any minimal build tools you might need
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Expose default AirSim RPC port
+EXPOSE 41451
+
+# Create a non-root user 'torchrl' and its home directory
+RUN useradd -m -s /bin/bash torchrl
+
+# Working directory for training scripts
+WORKDIR /home/torchrl
+
+# Switch to the new user
+USER torchrl
+
+
+# Upgrade pip and install core libraries
+# Upgrade pip and install numpy first (for AirSim build)
+
+RUN pip install msgpack-rpc-python
+
+RUN pip install airsim \
+        torchrl \
+        tqdm \
+        tensorboard \
+        gymnasium
+
+# Default command
+CMD ["/bin/bash"]
