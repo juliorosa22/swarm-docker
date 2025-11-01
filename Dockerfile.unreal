@@ -13,7 +13,8 @@ RUN apt-get update && \
         nano \
         vulkan-utils \
         mesa-utils \
-        git && \
+        git \
+        unzip && \
     rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
@@ -32,19 +33,43 @@ WORKDIR /home/ue4/AirSim
 RUN ./setup.sh && ./build.sh
 
 # ---------------------------------------------------------------------------
-# 4. Expose the AirSim RPC port (default 41451)
+# 4. Copy and prepare Alpha project
+# ---------------------------------------------------------------------------
+WORKDIR /home/ue4
+COPY --chown=ue4:ue4 Alpha.zip /home/ue4/
+RUN unzip Alpha.zip && rm Alpha.zip
+RUN rm -rf /home/ue4/Alpha/Plugins && \
+    cp -r /home/ue4/AirSim/Unreal/Environments/Blocks/Plugins /home/ue4/Alpha/
+
+# ---------------------------------------------------------------------------
+# 5. Build and package the project
+# ---------------------------------------------------------------------------
+RUN /home/ue4/UnrealEngine/Engine/Build/BatchFiles/RunUAT.sh BuildCookRun \
+    -platform=Linux \
+    -clientconfig=Shipping \
+    -serverconfig=Shipping \
+    -noP4 \
+    -cook \
+    -allmaps \
+    -build \
+    -stage \
+    -prereqs \
+    -pak \
+    -archive \
+    -archivedirectory=/home/ue4/Binaries/Alpha/ \
+    -project=/home/ue4/Alpha/Alpha.uproject
+
+# ---------------------------------------------------------------------------
+# 6. Make binary executable
+# ---------------------------------------------------------------------------
+RUN chmod +x /home/ue4/Binaries/Alpha/LinuxNoEditor/Alpha.sh
+
+# ---------------------------------------------------------------------------
+# 7. Expose the AirSim RPC port (default 41451)
 # ---------------------------------------------------------------------------
 EXPOSE 41451
 
 # ---------------------------------------------------------------------------
-# 5. Set working directory and switch back to UE4 user
-# ---------------------------------------------------------------------------
-WORKDIR /home/ue4
-COPY Alpha.zip /home/ue4/
-RUN unzip Alpha.zip && rm Alpha.zip
-RUN rm -rf /home/ue4/Alpha/Plugins && \
-    cp -r /home/ue4/AirSim/Unreal/Environments/Blocks/Plugins /home/ue4/Alpha/
-# ---------------------------------------------------------------------------
-# 6. Default command
+# 8. Default command
 # ---------------------------------------------------------------------------
 CMD ["/bin/bash"]

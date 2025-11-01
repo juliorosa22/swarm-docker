@@ -19,7 +19,8 @@ services:
       - /dev/dri
     ports:
       - "41451:41451"     # AirSim RPC port
-    command: ["/bin/bash"]
+    command: ["/bin/bash", "-c", "/home/ue4/Binaries/Alpha/LinuxNoEditor/Alpha.sh -RenderOffScreen"]
+    #command: ["/bin/bash"]
     tty: true
     stdin_open: true
 
@@ -40,5 +41,6 @@ services:
       - unreal
     # share network with Unreal so AirSim is reachable at localhost:41451
     network_mode: "service:unreal"
+    command: ["/bin/bash", "-c", "python /home/torchrl/RLSwarm/scripts/train_mappo.py"]
     tty: true
     stdin_open: true
