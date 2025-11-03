@@ -10,6 +10,7 @@ from torchrl.collectors import SyncDataCollector
 from torchrl.data import ReplayBuffer, LazyTensorStorage
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
 def print_tensordict_shapes(td: TensorDict, name: str = "TensorDict"):
     """
     Prints all keys in a TensorDict with their respective shapes.
@@ -92,9 +93,6 @@ class MAPPO:
         self.run_dir = os.path.join("/home/torchrl/training/runs", f"{self.model_name}_{time_str}")
         self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.log_dir = os.path.join(self.run_dir, "logs")
-        self.run_dir = os.path.join("runs", f"{self.model_name}_{time_str}")
-        self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
-        self.log_dir = os.path.join(self.run_dir, "logs")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
 
@@ -116,7 +114,7 @@ class MAPPO:
         
         # PPO loss
         self.loss_module = ClipPPOLoss(
-            actor_network=policy.policy, # Pass the inner ProbabilisticActor directly
+            actor_network=self.policy.policy, # Pass the inner ProbabilisticActor directly
             critic_network=self.critic,
             clip_epsilon=clip_epsilon,
             entropy_bonus=True,
@@ -130,8 +128,8 @@ class MAPPO:
         self.loss_module.set_keys(
             reward=env.reward_key,  # Ensure reward key is set correctly
             action=env.action_key,  # Ensure action key is set correctly
-            value=("agents", "state_value"),  # Critic value key
-            done=("agents", "done"),  # Done key
+            value="state_value",  # CORRECT: Value is at the top level
+            done="done",          # CORRECT: Done is at the top level
         )
         self.loss_module.make_value_estimator(ValueEstimators.GAE, gamma=gamma, lmbda=gae_lambda)
         self.gae = self.loss_module.value_estimator
@@ -142,62 +140,7 @@ class MAPPO:
         self.writer = SummaryWriter(log_dir=self.log_dir)
         self.last_avg_reward = 0.0 # Initialize last average reward
 
-    def train_deprecated(self, total_frames: int):#not working well
-        """Train the MAPPO agent."""
-        # Wrap the training loop with tqdm for a progress bar
-        progress_bar = tqdm(range(0, total_frames, self.collector.frames_per_batch))
-        
-        for frame_count in progress_bar:
-            # --- Data Collection ---
-            data = self.collector.next()
-            
-            # --- GAE Computation ---
-            with torch.no_grad():
-                self.gae(data)
-            
-            # Extract episode rewards for logging
-            episode_rewards = data["next", "episode_reward"][data["next", "done"]]
-            avg_reward = episode_rewards.mean().item() if len(episode_rewards) > 0 else 0.0
-            
-            # --- Learning ---
-            # Add collected data to the replay buffer
-            self.buffer.extend(data)
-            
-            # Initialize loss tracking for this iteration
-            total_policy_loss, total_value_loss, total_entropy_loss = 0, 0, 0
-            
-            for _ in range(self.n_epochs):
-                for batch in self.buffer: # Iterate over mini-batches
-                    # Perform a single update step
-                    print("Batch keys:", batch.keys())
-                    print("Batch data:", batch)
-                    loss_dict = self.update(batch)
-                    
-                    # Accumulate losses
-                    total_policy_loss += loss_dict["loss_objective"]
-                    total_value_loss += loss_dict["loss_critic"]
-                    total_entropy_loss += loss_dict["loss_entropy"]
-            
-            # Calculate average losses for this iteration
-            num_updates = self.n_epochs * (len(self.buffer) // self.buffer.batch_size)
-            avg_policy_loss = total_policy_loss / num_updates
-            avg_value_loss = total_value_loss / num_updates
-            avg_entropy_loss = total_entropy_loss / num_updates
-            avg_total_loss = avg_policy_loss + avg_value_loss + avg_entropy_loss
-
-            # --- Logging ---
-            self.writer.add_scalar("Loss/Total", avg_total_loss, frame_count)
-            self.writer.add_scalar("Loss/Policy", avg_policy_loss, frame_count)
-            self.writer.add_scalar("Loss/Value", avg_value_loss, frame_count)
-            self.writer.add_scalar("Loss/Entropy", avg_entropy_loss, frame_count)
-            self.writer.add_scalar("Reward/Average", avg_reward, frame_count)
-            
-            # Update the progress bar with the latest metrics
-            progress_bar.set_postfix({
-                "Avg Reward": f"{avg_reward:.2f}",
-                "Total Loss": f"{avg_total_loss:.4f}"
-            })
-
+    
     def train(self, total_frames: int):
         """
         An alternative training loop for MAPPO based on the torchrl tutorial,
@@ -220,22 +163,22 @@ class MAPPO:
             #print("tensordict data inspect",tensordict_data)
             
             
-            tensordict_data.set(
-                ("next", "agents", "done"),
-                tensordict_data.get(("next", "done")).expand(tensordict_data.get_item_shape(("next",self.env.reward_key))),
-            )
-            tensordict_data.set(
-                ("next", "agents", "terminated"),
-                tensordict_data.get(("next", "terminated")).expand(tensordict_data.get_item_shape(("next",self.env.reward_key))),
-            )
+            # tensordict_data.set(
+            #     ("next", "agents", "done"),
+            #     tensordict_data.get(("next", "done")).expand(tensordict_data.get_item_shape(("next",self.env.reward_key))),
+            # )
+            # tensordict_data.set(
+            #     ("next", "agents", "terminated"),
+            #     tensordict_data.get(("next", "terminated")).expand(tensordict_data.get_item_shape(("next",self.env.reward_key))),
+            # )
 
             with torch.no_grad():
                 self.gae(tensordict_data)
-
+            print_tensordict_shapes(tensordict_data, name="Post-GAE Tensordict")
+            if "collector" in tensordict_data.keys():
+                del tensordict_data["collector"]
             # --- Learning ---
-            # Flatten the batch size to shuffle data across frames and agents
-            data_view = tensordict_data.reshape(-1)
-            self.buffer.extend(data_view)
+            self.buffer.extend(tensordict_data)
 
             # Initialize loss tracking for this iteration
             total_loss_objective = 0.0
@@ -249,7 +192,12 @@ class MAPPO:
                     # Ensure the sub-batch is on the correct device
                     subdata = subdata.to(self.device)
 
-                    loss_vals = self.loss_module(subdata)
+                    # Flatten the batch size so critic can handle it properly
+                    subdata.batch_size = torch.Size([self.batch_size, self.n_agents])
+   
+                    mini_batch = subdata.reshape(-1)
+
+                    loss_vals = self.loss_module(mini_batch)
                     loss_value = (
                         loss_vals["loss_objective"]
                         + loss_vals["loss_critic"]
@@ -297,11 +245,12 @@ class MAPPO:
             avg_total_loss = avg_loss_objective + avg_loss_critic + avg_loss_entropy
             
             done = tensordict_data.get(("next", "done"))
-            episode_rewards = tensordict_data["next", "episode_reward"][done]
+            self.last_avg_reward=tensordict_data["next", "reward"].mean().item()
             
+            #episode_rewards = tensordict_data["next", "episode_reward"][done]
             # Only update the average reward if new episodes have finished
-            if len(episode_rewards) > 0:
-                self.last_avg_reward = episode_rewards.mean().item()
+            #if len(episode_rewards) > 0:
+            #    self.last_avg_reward = episode_rewards.mean().item()
 
             self.writer.add_scalar("Loss/Total", avg_total_loss, collected_frames)
             self.writer.add_scalar("Loss/Policy", avg_loss_objective, collected_frames)

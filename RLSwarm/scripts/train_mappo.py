@@ -4,15 +4,31 @@ import torch
 from tensordict import TensorDict
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from envs.swarm_config import SwarmConfig
-from torchrl.data import Bounded, Composite, Unbounded, Categorical
+#from torchrl.data import Bounded, Composite, Unbounded, Categorical
 from envs.swarm_torch import SwarmTorchEnv
 from policies.decentralized_policy import DecentralizedPolicy
 from policies.centralized_critic import CentralizedCritic
 from algorithms.mappo import MAPPO
-from torchrl.envs import TransformedEnv, RewardSum
-from torchrl.envs.utils import check_env_specs
-from torchrl.collectors import SyncDataCollector
+#from torchrl.envs import TransformedEnv, RewardSum
+#from torchrl.envs.utils import check_env_specs
+#from torchrl.collectors import SyncDataCollector
 from tensordict.nn import TensorDictModule
+
+def show_networks_architecture(policy, critic_net):
+    print("="*60)
+    print("--- Policy Network Architecture ---")
+    print(policy)
+    policy_params = sum(p.numel() for p in policy.parameters() if p.requires_grad)
+    print(f"Total trainable policy parameters: {policy_params:,}")
+    print("="*60)
+
+    print("\n" + "="*60)
+    print("--- Critic Network Architecture ---")
+    print(critic_net)
+    critic_params = sum(p.numel() for p in critic_net.parameters() if p.requires_grad)
+    print(f"Total trainable critic parameters: {critic_params:,}")
+    print("="*60)
+
 def main():
     # --- Configuration ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,32 +38,30 @@ def main():
     n_agents = swarm_config.n_agents
     swarm_config.max_steps = 1000 # Longer episodes for meaningful collection
     # Initialize environment directly (no GymWrapper needed)
-    base_env = SwarmTorchEnv(config=swarm_config, device=device,training_file=f"{base_name}_env_log.json")
-    env = TransformedEnv(base_env, transform=RewardSum() )
+    env = SwarmTorchEnv(config=swarm_config, device=device,training_file=f"{base_name}_env_log.json")
+    #env = TransformedEnv(base_env, transform=RewardSum() )
     #check_env_specs(base_env)
     
     # --- Correctly derive single-agent specs from the environment ---
     single_agent_obs_spec = env.observation_spec["agents"]
     # The critic observes the full shared state
     shared_observation_spec = env.observation_spec["shared_observation"]
-    single_agent_action_spec = env.action_spec[0]
-    
+    agent_group_action_spec = env.action_spec
+
     # Initialize policy (shared weights across agents)
     # The policy's internal networks use the single-agent specs,
     # but the final ProbabilisticActor needs the full multi-agent spec to sample correctly.
     #create the policy and adjust the action spec accordingly
     policy = DecentralizedPolicy(
         observation_spec=single_agent_obs_spec,
-        action_spec=env.action_spec,
+        action_spec=agent_group_action_spec,
         hidden_dim=64,
         device=device
     )
     # Mounts the critic network that uses attention over shared observations
     critic_net = CentralizedCritic(
         observation_spec=shared_observation_spec,
-        action_spec=single_agent_action_spec,
-        hidden_dim=64,
-        n_attention_heads=4,
+        action_spec=agent_group_action_spec,
         device=device
     )
 
@@ -71,7 +85,7 @@ def main():
     critic = TensorDictModule(
             module=critic_net,
             in_keys=["shared_observation"],
-            out_keys=[("agents", "state_value")] # The critic's output is the value for each agent
+            out_keys=["state_value"] # The critic's output is the value for each agent
         ).to(device)
 
     #print("Running policy:", policy(env.reset()))
@@ -90,16 +104,16 @@ def main():
         c1=1.0,
         c2=0.01,
         n_epochs=10,
-        batch_size=16,#64,
+        batch_size=256,#64,
         n_agents=n_agents,
-        frames_per_batch=2, #4096 Increased for better learning
+        frames_per_batch=512, #4096 Increased for better learning
         model_name=base_name,
-        checkpoint_interval=1
+        checkpoint_interval=100
     )
 
     # --- Training Loop ---
     total_frames = 100#2_000_000 # Set to a small number for a quick test
-    print(f"Starting MAPPO training with {n_agents} agents using SwarmTorchEnv...")
+    print(f"Starting MAPPO Discrete training with {n_agents} agents using SwarmTorchEnv...")
     try:
         mappo.train(total_frames)
         print("Training complete!")
