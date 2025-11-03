@@ -47,7 +47,7 @@ class MAPPO:
 
         # --- 2 & 3. Create structured directories for logs and checkpoints ---
         time_str = time.strftime('%Y%m%d-%H%M%S')
-        self.run_dir = os.path.join("runs", f"{self.model_name}_{time_str}")
+        self.run_dir = os.path.join("/home/torchrl/training/runs", f"{self.model_name}_{time_str}")
         self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.log_dir = os.path.join(self.run_dir, "logs")
         os.makedirs(self.checkpoint_dir, exist_ok=True)

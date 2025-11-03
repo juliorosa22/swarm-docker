@@ -90,15 +90,15 @@ def main():
         c1=1.0,
         c2=0.01,
         n_epochs=10,
-        batch_size=64,
+        batch_size=16,#64,
         n_agents=n_agents,
-        frames_per_batch=4096, # Increased for better learning
+        frames_per_batch=2, #4096 Increased for better learning
         model_name=base_name,
-        checkpoint_interval=5
+        checkpoint_interval=1
     )
 
     # --- Training Loop ---
-    total_frames = 2_000_000 # Set to a small number for a quick test
+    total_frames = 100#2_000_000 # Set to a small number for a quick test
     print(f"Starting MAPPO training with {n_agents} agents using SwarmTorchEnv...")
     try:
         mappo.train(total_frames)
@@ -109,7 +109,10 @@ def main():
 
     # --- Save Models ---
     # Create a directory for trained models if it doesn't exist
-    model_dir = "models"
+    dir="/home/torchrl/training/models"
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    model_dir = dir
     os.makedirs(model_dir, exist_ok=True)
     
     # Save the state_dict of the actual networks into the 'models' directory

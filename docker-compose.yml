@@ -36,11 +36,11 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
       - ./RLSwarm:/home/torchrl/RLSwarm
-      - ./training:/workspace
+      - ./training:/home/torchrl/training
     depends_on:
       - unreal
-    # share network with Unreal so AirSim is reachable at localhost:41451
     network_mode: "service:unreal"
+    user: "${UID:-1000}:${GID:-1000}"  # Match host user
     command: ["/bin/bash", "-c", "python /home/torchrl/RLSwarm/scripts/train_mappo.py"]
     tty: true
     stdin_open: true

@@ -43,7 +43,7 @@ class SwarmTorchEnv(EnvBase):
         # Centralized AirSim client
         self.client = airsim.MultirotorClient(ip="127.0.0.1", port=41451)
         self.client.confirmConnection()
-
+        self.training_file = training_file
         # Define specs before initializing state
         self._define_specs()
 
@@ -402,9 +402,13 @@ class SwarmTorchEnv(EnvBase):
                 'steps_in_episode': self.step_count.item()
             }
             self.episode_collision_log.append(final_episode_data)
-        
+        dir="/home/torchrl/training/env_logs"
         # --- Save the complete log for all episodes ---
         try:
+            import os
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            self.training_file = os.path.join(dir, self.training_file)
             with open(self.training_file, "w") as f:
                 json.dump(self.episode_collision_log, f, indent=4)
             print(f"Successfully saved training log for {len(self.episode_collision_log)} episodes to {self.training_file}")

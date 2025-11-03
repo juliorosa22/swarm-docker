@@ -34,6 +34,8 @@ RUN pip install airsim \
         tqdm \
         tensorboard \
         gymnasium
+WORKDIR /home/torchrl
+
 
 # Default command
 CMD ["/bin/bash"]
