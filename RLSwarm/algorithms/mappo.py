@@ -10,6 +10,48 @@ from torchrl.collectors import SyncDataCollector
 from torchrl.data import ReplayBuffer, LazyTensorStorage
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+def print_tensordict_shapes(td: TensorDict, name: str = "TensorDict"):
+    """
+    Prints all keys in a TensorDict with their respective shapes.
+    
+    Args:
+        td: The TensorDict to inspect
+        name: A descriptive name for the TensorDict (for the header)
+    """
+    print(f"\n{'='*70}")
+    print(f"  {name}")
+    print(f"{'='*70}")
+    print(f"Batch Size: {td.batch_size}")
+    print(f"Device: {td.device}")
+    print(f"\nKeys and Shapes:")
+    print(f"{'-'*70}")
+    
+    # Get all keys (nested and leaf nodes)
+    all_keys = td.keys(include_nested=True, leaves_only=True)
+    
+    # Convert all keys to strings for sorting
+    key_strings = []
+    for key in all_keys:
+        if isinstance(key, tuple):
+            key_str = " -> ".join(str(k) for k in key)
+        else:
+            key_str = str(key)
+        key_strings.append((key_str, key))
+    
+    # Sort by string representation
+    key_strings.sort(key=lambda x: x[0])
+    
+    # Print sorted keys with shapes
+    for key_str, key in key_strings:
+        try:
+            tensor = td[key]
+            print(f"  {key_str:.<50} {str(tensor.shape)}")
+        except Exception as e:
+            print(f"  {key_str:.<50} ERROR: {e}")
+    
+    print(f"{'='*70}\n")
+
+    
 
 class MAPPO:
     """
@@ -48,6 +90,9 @@ class MAPPO:
         # --- 2 & 3. Create structured directories for logs and checkpoints ---
         time_str = time.strftime('%Y%m%d-%H%M%S')
         self.run_dir = os.path.join("/home/torchrl/training/runs", f"{self.model_name}_{time_str}")
+        self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
+        self.log_dir = os.path.join(self.run_dir, "logs")
+        self.run_dir = os.path.join("runs", f"{self.model_name}_{time_str}")
         self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.log_dir = os.path.join(self.run_dir, "logs")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
@@ -96,7 +141,7 @@ class MAPPO:
         # TensorBoard Summary Writer pointed to the new log directory
         self.writer = SummaryWriter(log_dir=self.log_dir)
         self.last_avg_reward = 0.0 # Initialize last average reward
-    
+
     def train_deprecated(self, total_frames: int):#not working well
         """Train the MAPPO agent."""
         # Wrap the training loop with tqdm for a progress bar

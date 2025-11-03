@@ -87,6 +87,42 @@ class VectorFeatureExtractor(nn.Module):
         return x
 
 
+class AgentAttentionEncoder(nn.Module):
+    """
+    Processes a variable number of agent observations (distances) using self-attention
+    to produce a fixed-size context vector.
+    """
+    def __init__(self, input_dim, embed_dim, num_heads=2):
+        super().__init__()
+        self.embed_dim = embed_dim
+        # Simple embedding for the input features (e.g., distance)
+        self.embedding = nn.Linear(input_dim, embed_dim)
+        self.attention = nn.MultiheadAttention(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            batch_first=True
+        )
+        # A special token for the agent to query its context
+        self.query_token = nn.Parameter(torch.randn(1, 1, embed_dim))
+
+    def forward(self, x):
+        # x shape: [batch_size, n_agents, input_dim]
+        
+        # Embed the features of all agents
+        embedded_x = self.embedding(x)
+        
+        # Prepend the query token to the sequence for each item in the batch
+        batch_size = x.shape[0]
+        query = self.query_token.expand(batch_size, -1, -1)
+        
+        # The attention mechanism will use the query token to attend to all agent embeddings
+        # This creates a summary vector based on the relationships
+        context_vector, _ = self.attention(query, embedded_x, embedded_x)
+        
+        # Squeeze out the sequence dimension, leaving a fixed-size vector
+        return context_vector.squeeze(1)
+
+
 class MultiHeadAttention(nn.Module):
     """
     Multi-head attention module for handling variable agent counts.
@@ -148,4 +184,3 @@ class MultiHeadAttention(nn.Module):
         attn_output = self.out_proj(attn_output)
         
         return attn_output, attn_weights
-

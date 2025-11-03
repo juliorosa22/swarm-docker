@@ -5,15 +5,16 @@ from typing import Dict, Tuple
 from tensordict import TensorDict
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.modules import ProbabilisticActor, NormalParamExtractor
-from helpers.features_extractors import CNNFeatureExtractor, VectorFeatureExtractor
+from helpers.features_extractors import CNNFeatureExtractor, VectorFeatureExtractor, AgentAttentionEncoder
 from torch.distributions import OneHotCategorical,Categorical, Normal 
 
 
 class FullPolicyModule(nn.Module):
-    def __init__(self, cnn, vector_net, policy_net, action_head):
+    def __init__(self, cnn, vector_net, attention_encoder, policy_net, action_head):
         super().__init__()
         self.cnn = cnn
         self.vector_net = vector_net
+        self.attention_encoder = attention_encoder # Add attention encoder
         self.policy_net = policy_net
         self.action_head = action_head
         
@@ -21,7 +22,7 @@ class FullPolicyModule(nn.Module):
     def forward(self, agents_td):
         # agents_td is a tensordict where each entry has shape (n_agents, ...)
         original_shape = agents_td.batch_size
-        
+        #print(f"Inspecting the tensordict in policy: {agents_td}")
         # --- Feature Extraction ---
         depth_image = agents_td.get("depth_image")
         cnn_input = depth_image.reshape(-1, *depth_image.shape[-3:])
@@ -37,26 +38,21 @@ class FullPolicyModule(nn.Module):
         concatenated_vectors = torch.cat(vector_input_list, dim=-1)
         vector_input = concatenated_vectors.reshape(-1, concatenated_vectors.shape[-1])
         vector_features = self.vector_net(vector_input)
+
+        # Process inter-agent distances with attention
+        distances = agents_td.get("neighbors_distances")
+        # Reshape for attention: [B*N, N, 1] to process each agent's view
+        distances_reshaped = distances.view(-1, distances.shape[-1], 1)
+        agent_context_vector = self.attention_encoder(distances_reshaped)
         
         # Combine features
-        combined_features = torch.cat([img_features, vector_features], dim=-1)
+        combined_features = torch.cat([img_features, vector_features, agent_context_vector], dim=-1)
         
         # Policy and action head
         policy_features = self.policy_net(combined_features)
         action_output = self.action_head(policy_features)
+        #print(f"Action output shape inside FullPolicyModule: {action_output.shape}")
         return action_output
-        # --- Reshape and return the RAW tensor ---
-        # The TensorDictModule wrapper will handle placing this in the main tensordict.
-        # if self.out_keys == ["logits"]:
-        #     action_output = action_output.view(*original_shape, -1)
-        #     return action_output # Return the raw tensor
-        # else:
-        #     # For continuous actions, NormalParamExtractor outputs a tuple
-        #     loc, scale = action_output
-        #     loc = loc.view(*original_shape, -1)
-        #     scale = scale.view(*original_shape, -1)
-        #     # We need to stack them to return a single tensor that the wrapper can handle
-        #     return torch.stack([loc, scale], dim=-1)
 
 
 class DecentralizedPolicy(nn.Module):
@@ -85,7 +81,7 @@ class DecentralizedPolicy(nn.Module):
         
         self._define_layers()
 
-        module = FullPolicyModule(self.cnn,self.vector_net,self.policy_net,self.action_head)
+        module = FullPolicyModule(self.cnn, self.vector_net, self.attention_encoder, self.policy_net, self.action_head)
 
         # This module will take the "agents" sub-TD and its output will also be placed within "agents".
         self.policy_module = TensorDictModule(
@@ -95,7 +91,7 @@ class DecentralizedPolicy(nn.Module):
         ).to(self.device)
         
         # The distribution parameters are now nested, e.g., ("agents", "logits")
-        dist_param_keys = [("agents", key) for key in out_keys]
+        input_dist_param_keys = [("agents", key) for key in out_keys]
         
         # The final action should also be nested, e.g., ("agents", "action")
         env_action_key = [("agents", "action")]
@@ -105,7 +101,7 @@ class DecentralizedPolicy(nn.Module):
         
         self.policy = ProbabilisticActor(
             module=self.policy_module,
-            in_keys=dist_param_keys,    # Use the nested keys for distribution params
+            in_keys=input_dist_param_keys,    # Use the nested keys for distribution params
             out_keys=env_action_key,    # Use the nested key for the final action
             spec=self.action_spec,      # The spec for the multi-agent action
             distribution_class=dist_class,
@@ -124,11 +120,23 @@ class DecentralizedPolicy(nn.Module):
         h, w = self.observation_spec["depth_image"].shape[-2:]
         #print(f"image spec :{self.observation_spec['depth_image'].shape}")
         self.cnn = CNNFeatureExtractor(image_shape=(1, h, w)).to(self.device)
+        
         vector_dim = 0
+        # This part now only computes the dimension for the agent's *local* vector state
         for key in ["position", "rotation", "velocity", "target_distance", "front_obs_distance"]:
             vector_dim += self.observation_spec[key].shape[-1]
         self.vector_net = VectorFeatureExtractor(vector_dim).to(self.device)
-        combined_dim = self.cnn.output_dim + self.vector_net.output_dim
+
+        # New Attention Encoder for inter-agent distances
+        attention_embed_dim = 32 # The fixed-size output of the attention module
+        self.attention_encoder = AgentAttentionEncoder(
+            input_dim=1, # We are feeding in one feature per agent: its distance
+            embed_dim=attention_embed_dim,
+            num_heads=2
+        ).to(self.device)
+        
+        # The combined dimension now includes the fixed-size output from the attention encoder
+        combined_dim = self.cnn.output_dim + self.vector_net.output_dim + attention_embed_dim
         
         # Policy head (linear layers only)
         # This module operates on a raw tensor inside FullPolicyModule, so it MUST be nn.Sequential.

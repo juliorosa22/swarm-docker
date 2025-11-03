@@ -37,7 +37,7 @@ class SwarmTorchEnv(EnvBase):
         self.n_agents = config.n_agents
         self.drone_names = [f"uav{i}" for i in range(self.n_agents)]
         self.frame_skip_duration = frame_skip_duration
-        self.act_duration = 1.0
+        self.act_duration = 0.2
         self.use_lidar = use_lidar
 
         # Centralized AirSim client
@@ -74,6 +74,7 @@ class SwarmTorchEnv(EnvBase):
             "velocity": Unbounded(shape=(self.n_agents, 3), device=self.device),
             "target_distance": Unbounded(shape=(self.n_agents, 1), device=self.device),
             "front_obs_distance": Unbounded(shape=(self.n_agents, 1), device=self.device),
+            "neighbors_distances": Unbounded(shape=(self.n_agents, self.n_agents), device=self.device)
         })
 
         shared_obs_spec = Composite({
@@ -104,8 +105,12 @@ class SwarmTorchEnv(EnvBase):
             )
 
         # Reward and Done Specs
-        self.reward_spec = Unbounded(shape=(1,), device=self.device)
-        self.done_spec = Categorical(n=2, shape=(1,), dtype=torch.bool, device=self.device)
+        # All specs must have the same shape for GAE compatibility.
+        self.reward_spec = Unbounded(shape=(self.n_agents, 1), device=self.device)
+        self.done_spec = Categorical(n=2, shape=(self.n_agents, 1), dtype=torch.bool, device=self.device)
+        #self.terminated_spec = Categorical(n=2, shape=(self.n_agents, 1), dtype=torch.bool, device=self.device)
+        #self.truncated_spec = Categorical(n=2, shape=(self.n_agents, 1), dtype=torch.bool, device=self.device)
+
 
     def _reset(self, tensordict: Optional[TensorDict] = None) -> TensorDict:
         """Resets the environment and returns the initial observation."""
@@ -160,7 +165,7 @@ class SwarmTorchEnv(EnvBase):
         if actions.ndim == 0:
             actions = actions.unsqueeze(0)
         
-        actions_np = actions.cpu().numpy()
+        #actions_np = actions.cpu().numpy()
         
         # Step the underlying AirSim environment
         for i, name in enumerate(self.drone_names):
@@ -180,14 +185,19 @@ class SwarmTorchEnv(EnvBase):
         obs_td = self._get_swarm_observation_torch()
         rewards, terminateds, truncateds = self._compute_rewards_and_dones_torch(obs_td, collisions_this_step)
 
-        total_reward = rewards.sum()
-        done = terminateds.any() or truncateds.any()
+        #total_reward = rewards.sum()
+        #done = terminateds.any() or truncateds.any()
 
-        # Populate the output tensordict
-        # The observation keys from obs_td must be at the top level to match observation_spec
-        tensordict_out = obs_td.clone()  # Start with the observation tensordict
-        tensordict_out.set("reward", total_reward.unsqueeze(0))
-        tensordict_out.set("done", done.unsqueeze(0))
+     # The 'done' signal is the logical OR of terminated and truncated for each agent
+        dones = terminateds | truncateds
+
+        # Populate the output tensordict with per-agent data, ensuring shapes match the specs.
+        tensordict_out = obs_td#obs_td.clone()  # Start with the observation tensordict
+        tensordict_out.set("reward", rewards.unsqueeze(-1)) # Shape: (n_agents, 1)
+        tensordict_out.set("done", dones.unsqueeze(-1))     
+        
+        # tensordict_out.set("terminated", terminateds.unsqueeze(-1))                 # Shape: (n_agents, 1)
+        # tensordict_out.set("truncated", truncateds.unsqueeze(-1))                   # Shape: (n_agents, 1)
 
         return tensordict_out
 
@@ -252,6 +262,7 @@ class SwarmTorchEnv(EnvBase):
                 "velocity": velocities,
                 "target_distance": agent_target_distances.unsqueeze(-1),
                 "front_obs_distance": front_obs_distances.unsqueeze(-1),
+                "neighbors_distances": distance_matrix,
             },
             "shared_observation": {
                 "inter_agent_distances": distance_matrix,
@@ -346,7 +357,7 @@ class SwarmTorchEnv(EnvBase):
             vx, vy, vz, yaw = float(act_vec[0]), float(act_vec[1]), float(act_vec[2]), float(act_vec[3])
             yaw_rate = yaw / self.act_duration
         else: # continuous
-            act_vec = 5*action.cpu().numpy()
+            act_vec = 3*action.cpu().numpy()
             vx, vy, vz, yaw_increment = float(act_vec[0]), float(act_vec[1]), float(act_vec[2]), float(act_vec[3])
             yaw_rate = yaw_increment / self.act_duration
 
@@ -355,15 +366,16 @@ class SwarmTorchEnv(EnvBase):
 
     def _map_int_act(self, action_idx: int) -> list:
         """Maps an integer action to a velocity/yaw vector."""
+        base_speed=5.0
         mapping = [
-            [3.0, 0.0, 0.0, 0.0],  # Forward
-            [0.0, 3.0, 0.0, 0.0],  # Right
-            [0.0, 0.0, 3.0, 0.0],  # Down
-            [-3.0, 0.0, 0.0, 0.0], # Backward
-            [0.0, -3.0, 0.0, 0.0],# Left
-            [0.0, 0.0, -3.0, 0.0],# Up
-            [0.0, 0.0, 0.0, 45.0],# Yaw Right
-            [0.0, 0.0, 0.0, -45.0],# Yaw Left
+            [base_speed, 0.0, 0.0, 0.0],  # Forward
+            [0.0, base_speed, 0.0, 0.0],  # Right
+            [0.0, 0.0, base_speed, 0.0],  # Down
+            [-base_speed, 0.0, 0.0, 0.0], # Backward
+            [0.0, -base_speed, 0.0, 0.0],# Left
+            [0.0, 0.0, -base_speed, 0.0],# Up
+            [0.0, 0.0, 0.0, 90.0],# Yaw Right
+            [0.0, 0.0, 0.0, -90.0],# Yaw Left
         ]
         return mapping[action_idx] if 0 <= action_idx < len(mapping) else [0.0, 0.0, 0.0, 0.0]
 
