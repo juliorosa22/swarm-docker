@@ -357,7 +357,7 @@ class SwarmTorchEnv(EnvBase):
             vx, vy, vz, yaw = float(act_vec[0]), float(act_vec[1]), float(act_vec[2]), float(act_vec[3])
             yaw_rate = yaw / self.act_duration
         else: # continuous
-            act_vec = 3*action.cpu().numpy()
+            act_vec = 10*action.cpu().numpy()
             vx, vy, vz, yaw_increment = float(act_vec[0]), float(act_vec[1]), float(act_vec[2]), float(act_vec[3])
             yaw_rate = yaw_increment / self.act_duration
 
