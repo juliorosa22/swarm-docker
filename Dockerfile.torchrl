@@ -9,6 +9,15 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends git sudo && \
     rm -rf /var/lib/apt/lists/*
 
+# Create torchrl user with UID 1000 and add to sudoers
+RUN useradd -m -s /bin/bash -u 1000 torchrl && \
+    echo "torchrl ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create training folder and assign correct permissions
+RUN mkdir -p /home/torchrl/training && \
+    chown -R torchrl:torchrl /home/torchrl && \
+    chmod -R 777 /home/torchrl/training
+
 # Expose default AirSim RPC port
 EXPOSE 41451
 
@@ -21,14 +30,10 @@ RUN pip install tensordict \
                 tensorboard \
                 gymnasium
 
-# Create torchrl user with UID 1000 and add to sudoers
-RUN useradd -m -s /bin/bash -u 1000 torchrl && \
-    echo "torchrl ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
 # Working directory
 WORKDIR /home/torchrl
 
-# Switch to torchrl user
+# Switch to torchrl user for runtime
 USER torchrl
 
 # Default command
