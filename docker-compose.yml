@@ -36,11 +36,10 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
       - ./RLSwarm:/home/torchrl/RLSwarm
-      - ./training:/home/torchrl/training
+      - ./training:/tmp/training  # Changed to /tmp/training to match code
     depends_on:
       - unreal
     network_mode: "service:unreal"
-    user: "${UID:-1000}:${GID:-1000}"  # Match host user
     command: ["/bin/bash", "-c", "python /home/torchrl/RLSwarm/scripts/train_mappo.py"]
     tty: true
     stdin_open: true

@@ -108,7 +108,7 @@ def main():
         n_agents=n_agents,
         frames_per_batch=512, #4096 Increased for better learning
         model_name=base_name,
-        checkpoint_interval=100
+        checkpoint_interval=1
     )
 
     # --- Training Loop ---
@@ -123,10 +123,7 @@ def main():
 
     # --- Save Models ---
     # Create a directory for trained models if it doesn't exist
-    dir="/home/torchrl/training/models"
-    if not os.path.exists(dir):
-        os.makedirs(dir)
-    model_dir = dir
+    model_dir = "/tmp/training/models"
     os.makedirs(model_dir, exist_ok=True)
     
     # Save the state_dict of the actual networks into the 'models' directory

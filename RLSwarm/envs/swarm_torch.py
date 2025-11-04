@@ -414,16 +414,19 @@ class SwarmTorchEnv(EnvBase):
                 'steps_in_episode': self.step_count.item()
             }
             self.episode_collision_log.append(final_episode_data)
-        dir="/home/torchrl/training/env_logs"
+        
+        # Use /tmp/training which is mounted to host ./training
+        log_dir = "/tmp/training/env_logs"
+        
         # --- Save the complete log for all episodes ---
         try:
             import os
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            self.training_file = os.path.join(dir, self.training_file)
-            with open(self.training_file, "w") as f:
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            log_file_path = os.path.join(log_dir, self.training_file)
+            with open(log_file_path, "w") as f:
                 json.dump(self.episode_collision_log, f, indent=4)
-            print(f"Successfully saved training log for {len(self.episode_collision_log)} episodes to {self.training_file}")
+            print(f"Successfully saved training log for {len(self.episode_collision_log)} episodes to {log_file_path}")
         except Exception as e:
             print(f"Error saving training log: {e}")
 
