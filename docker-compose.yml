@@ -36,7 +36,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
       - ./RLSwarm:/home/torchrl/RLSwarm
-      - ./training:/tmp/training  # Changed to /tmp/training to match code
+      - ./training:/home/torchrl/training  # Changed to /home/torchrl/swarm-docker/training to match code
     depends_on:
       - unreal
     network_mode: "service:unreal"

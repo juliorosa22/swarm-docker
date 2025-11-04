@@ -122,8 +122,11 @@ def main():
         env.close()
 
     # --- Save Models ---
-    # Create a directory for trained models if it doesn't exist
-    model_dir = "/tmp/training/models"
+    # Create a directory for trained models at project level
+    # Current script is in RLSwarm/scripts/train_mappo.py
+    # Go up two levels to get to project root, then into training/models
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    model_dir = os.path.join(base_dir, "training", "models")
     os.makedirs(model_dir, exist_ok=True)
     
     # Save the state_dict of the actual networks into the 'models' directory

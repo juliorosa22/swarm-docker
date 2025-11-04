@@ -90,7 +90,15 @@ class MAPPO:
 
         # --- 2 & 3. Create structured directories for logs and checkpoints ---
         time_str = time.strftime('%Y%m%d-%H%M%S')
-        self.run_dir = os.path.join("/tmp/training/runs", f"{self.model_name}_{time_str}")
+        
+        # Get the directory one level above the current script location
+        # Current script is in RLSwarm/algorithms/mappo.py
+        # One level up from RLSwarm is the project root
+        # Two levels up gets us to where training folder is
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        training_dir = os.path.join(base_dir, "training")
+        
+        self.run_dir = os.path.join(training_dir, "runs", f"{self.model_name}_{time_str}")
         self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.log_dir = os.path.join(self.run_dir, "logs")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
