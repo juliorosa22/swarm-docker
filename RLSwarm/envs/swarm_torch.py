@@ -414,9 +414,9 @@ class SwarmTorchEnv(EnvBase):
                 'steps_in_episode': self.step_count.item()
             }
             self.episode_collision_log.append(final_episode_data)
-        
-        # Use /tmp/training which is mounted to host ./training
-        log_dir = "/tmp/training/env_logs"
+
+        # Use /home/torchrl/training/env_logs which is mounted to host ./training/env_logs
+        log_dir = "/home/torchrl/training/env_logs"
         
         # --- Save the complete log for all episodes ---
         try:

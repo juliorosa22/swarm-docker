@@ -104,9 +104,9 @@ def main():
         c1=1.0,
         c2=0.01,
         n_epochs=10,
-        batch_size=256,#64,
+        batch_size=8,#64,
         n_agents=n_agents,
-        frames_per_batch=512, #4096 Increased for better learning
+        frames_per_batch=16, #4096 Increased for better learning
         model_name=base_name,
         checkpoint_interval=1
     )

@@ -95,15 +95,27 @@ class MAPPO:
         # Current script is in RLSwarm/algorithms/mappo.py
         # One level up from RLSwarm is the project root
         # Two levels up gets us to where training folder is
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        base_dir = "/home/torchrl"
+        
         training_dir = os.path.join(base_dir, "training")
         
+        # Check if training directory exists, if not create it
+        if not os.path.exists(training_dir):
+            os.makedirs(training_dir, exist_ok=True)
+            print(f"Created training directory: {training_dir}")
+        
+        # Create run-specific directories
         self.run_dir = os.path.join(training_dir, "runs", f"{self.model_name}_{time_str}")
         self.checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.log_dir = os.path.join(self.run_dir, "logs")
+        
+        # Create all subdirectories
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
-
+        
+        print(f"Checkpoint directory: {self.checkpoint_dir}")
+        print(f"Log directory: {self.log_dir}")
+        
         # Data collector
         self.collector = SyncDataCollector(
             env,
