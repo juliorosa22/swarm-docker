@@ -5,6 +5,7 @@ import json
 from typing import Optional, List
 #import time
 import numpy as np
+from .swarm_rewards import SwarmRewards
 from tensordict import TensorDict
 from torchrl.envs import EnvBase
 from torchrl.data import (
@@ -37,7 +38,7 @@ class SwarmTorchEnv(EnvBase):
         self.n_agents = config.n_agents
         self.drone_names = [f"uav{i}" for i in range(self.n_agents)]
         self.frame_skip_duration = frame_skip_duration
-        self.act_duration = 0.2
+        self.act_duration = 0.5  # Duration for each action command
         self.use_lidar = use_lidar
 
         # Centralized AirSim client
@@ -51,13 +52,21 @@ class SwarmTorchEnv(EnvBase):
         self.step_count = torch.zeros(1, dtype=torch.int64, device=self.device)
         self.start_positions = torch.zeros((self.n_agents, 3), device=self.device)
         self.end_positions = torch.zeros((self.n_agents, 3), device=self.device)
-        self.initial_target_distances = torch.full((self.n_agents,), 100.0, device=self.device)
+        self.initial_target_distances = torch.zeros(self.n_agents, device=self.device)
         self.last_target_distances = torch.zeros(self.n_agents, device=self.device)
         self.collision_counters = torch.zeros(self.n_agents, dtype=torch.int32, device=self.device)
         self.episode_collision_log = []
+        self._setup_positioning()
+        # Setup the reward system
+        self.reward_system = SwarmRewards(config=self.config, device=self.device)
+        self.reward_system.update_tracking_vars(
+            tracked_vars=TensorDict({
+                "last_target_distances": self.last_target_distances.clone(),
+                "initial_target_distances": self.initial_target_distances.clone(),
+                "end_positions": self.end_positions.clone()
+            })
+        )
 
-        # Pause simulation on init
-        #self.client.simPause(True)
 
     def _define_specs(self):
         """Define observation, action, and reward specs for TorchRL."""
@@ -111,7 +120,23 @@ class SwarmTorchEnv(EnvBase):
         #self.terminated_spec = Categorical(n=2, shape=(self.n_agents, 1), dtype=torch.bool, device=self.device)
         #self.truncated_spec = Categorical(n=2, shape=(self.n_agents, 1), dtype=torch.bool, device=self.device)
 
+    def _setup_positioning(self):
+        start_pos_np, end_pos_np = self.config.generate_positions()
+        self.start_positions = torch.tensor(start_pos_np, dtype=torch.float32, device=self.device)
+        self.end_positions = torch.tensor(end_pos_np, dtype=torch.float32, device=self.device)
 
+        self.initial_target_distances = torch.norm(self.start_positions - self.end_positions, dim=1)
+        self.last_target_distances = self.initial_target_distances.clone()
+
+        for i, name in enumerate(self.drone_names):
+            x,y,z = self.start_positions[i].cpu().numpy().tolist()
+            position = airsim.Vector3r(x, y, z)
+            orientation = airsim.Quaternionr(0, 0, -0.707, 0.707)
+            pose = airsim.Pose(position, orientation)
+            self.client.simSetVehiclePose(pose, True, vehicle_name=name)
+            self.client.enableApiControl(True, vehicle_name=name)
+            self.client.armDisarm(True, vehicle_name=name)
+        
     def _reset(self, tensordict: Optional[TensorDict] = None) -> TensorDict:
         """Resets the environment and returns the initial observation."""
         # --- Log data from the previous episode before resetting ---
@@ -127,41 +152,20 @@ class SwarmTorchEnv(EnvBase):
         # --- Reset state for the new episode ---
         self.step_count.zero_()
         self.collision_counters.zero_()
-
-        start_pos_np, end_pos_np = self.config.generate_positions()
-        self.start_positions = torch.tensor(start_pos_np, dtype=torch.float32, device=self.device)
-        self.end_positions = torch.tensor(end_pos_np, dtype=torch.float32, device=self.device)
-
-        self.initial_target_distances = torch.norm(self.start_positions - self.end_positions, dim=1)
-        self.last_target_distances = self.initial_target_distances.clone()
-
-        #self.client.simPause(False)
-        for i, name in enumerate(self.drone_names):
-            x,y,z = self.start_positions[i].cpu().numpy().tolist()
-            position = airsim.Vector3r(x, y, z)
-            orientation = airsim.Quaternionr(0, 0, -0.707, 0.707)
-            pose = airsim.Pose(position, orientation)
-            self.client.simSetVehiclePose(pose, True, vehicle_name=name)
-            self.client.enableApiControl(True, vehicle_name=name)
-            self.client.armDisarm(True, vehicle_name=name)
-        #self.client.simPause(True)
-
+        self._setup_positioning()
         obs_td = self._get_swarm_observation_torch()
         self.last_target_distances = obs_td["shared_observation", "target_distances"].clone()
 
         return obs_td
 
     def _step(self, tensordict: TensorDict) -> TensorDict:
-        """
-        Performs one step in the environment.
-        """
+        """Performs one step in the environment."""
         actions = tensordict.get("action", None)
 
         # If no action is provided (e.g., during check_env_specs), sample a random one.
         if actions is None:
             actions = self.action_spec.rand()
 
-        # The rest of your logic remains the same
         if actions.ndim == 0:
             actions = actions.unsqueeze(0)
         
@@ -173,32 +177,34 @@ class SwarmTorchEnv(EnvBase):
 
         self.step_count += 1
         
-        # Unpause, wait, and re-pause
-        #self.client.simPause(False)
+        # Step simulation
         self.client.simContinueForTime(self.act_duration)
         self.end_swarm_actions()
-        #time.sleep(self.frame_skip_duration)
 
-        #self.client.simPause(True)
-
+        # Get observations and collisions
         collisions_this_step = self._check_collisions_torch()
         obs_td = self._get_swarm_observation_torch()
-        rewards, terminateds, truncateds = self._compute_rewards_and_dones_torch(obs_td, collisions_this_step)
-
-        #total_reward = rewards.sum()
-        #done = terminateds.any() or truncateds.any()
-
-     # The 'done' signal is the logical OR of terminated and truncated for each agent
+        
+        # Compute rewards
+        tracked_vars = TensorDict({
+            "last_target_distances": self.last_target_distances,
+            "initial_target_distances": self.initial_target_distances,
+            "end_positions": self.end_positions
+        })
+        self.reward_system.update_tracking_vars(tracked_vars=tracked_vars)
+        rewards = self.reward_system.simple_reward(obs_td, collisions_this_step)
+        
+        # Compute done conditions (separated function)
+        terminateds, truncateds = self._compute_done_conditions(obs_td)
+        
+        # Combine done signals
         dones = terminateds | truncateds
 
-        # Populate the output tensordict with per-agent data, ensuring shapes match the specs.
-        tensordict_out = obs_td#obs_td.clone()  # Start with the observation tensordict
-        tensordict_out.set("reward", rewards.unsqueeze(-1)) # Shape: (n_agents, 1)
-        tensordict_out.set("done", dones.unsqueeze(-1))     
+        # Build output tensordict
+        tensordict_out = obs_td
+        tensordict_out.set("reward", rewards.unsqueeze(-1))
+        tensordict_out.set("done", dones.unsqueeze(-1))
         
-        # tensordict_out.set("terminated", terminateds.unsqueeze(-1))                 # Shape: (n_agents, 1)
-        # tensordict_out.set("truncated", truncateds.unsqueeze(-1))                   # Shape: (n_agents, 1)
-
         return tensordict_out
 
     def _get_swarm_observation_torch(self) -> TensorDict:
@@ -273,73 +279,7 @@ class SwarmTorchEnv(EnvBase):
         }, batch_size=[], device=self.device)
         return obs
 
-    def _compute_rewards_and_dones_torch(self, current_obs: TensorDict, collisions_this_step: torch.Tensor):
-        """Computes rewards and dones for the swarm using torch tensors."""
-        reward_weights = {
-            'progress': 1.5, 'obstacle': 1.0, 'formation': 0.5, 'step': 0.01
-        }
-
-        current_target_distances = current_obs["shared_observation", "target_distances"]
-        front_obs_distances = current_obs["shared_observation", "obstacle_distances"]
-        distance_matrix = current_obs["shared_observation", "inter_agent_distances"]
-
-        # 1. Progress Reward
-        dist_improvement = self.last_target_distances - current_target_distances
-        progress_reward = dist_improvement * reward_weights['progress']
-
-        # 2. Obstacle Penalty
-        obs_threshold = self.config.obstacle_threshold
-        obs_violation = torch.clamp((obs_threshold - front_obs_distances) / obs_threshold, min=0)
-        obstacle_penalty = (obs_violation ** 2) * reward_weights['obstacle']
-
-        # 3. Formation Penalty
-        form_threshold = self.config.min_distance_threshold
-        form_violation = torch.clamp((form_threshold - distance_matrix) / form_threshold, min=0)
-        torch.diagonal(form_violation).fill_(0) # Ignore self-distance
-        formation_penalty = torch.sum(form_violation ** 2, dim=1) * reward_weights['formation']
-
-        # 4. Collision Penalty
-        #collision_penalty = collisions_this_step.float() * reward_weights['collision']
-
-        # 5. Step Penalty
-        step_penalty = reward_weights['step']
-
-        # Combine and clip rewards
-        total_rewards = progress_reward - obstacle_penalty - formation_penalty  - step_penalty
-        individual_rewards = torch.clamp(total_rewards, -1.0, 1.0)
-
-        # Done conditions
-        max_steps_reached = self.step_count >= self.config.max_steps
-        swarm_dispersed = torch.tensor(False, device=self.device)
-        if self.n_agents > 1:
-            # Get indices of the upper triangle, excluding the diagonal (k=1)
-            upper_triangle_indices = torch.triu_indices(self.n_agents, self.n_agents, offset=1, device=self.device)
-            # Select the unique distances from the distance matrix
-            unique_distances = distance_matrix[upper_triangle_indices[0], upper_triangle_indices[1]]
-            # Calculate the mean
-            mean_swarm_distance = unique_distances.mean()
-            swarm_dispersed = mean_swarm_distance > self.config.max_formation_distance
-        
-        goal_reached = torch.any(current_target_distances < self.config.goal_threshold)
-        agent_too_far = current_target_distances > (self.initial_target_distances * 2.0)
-
-        # Print terminated conditions
-        if goal_reached.item():
-            print("Terminated: Goal reached!")
-        if max_steps_reached.item():
-            print("Truncated: Max steps reached!")
-        if swarm_dispersed.item():
-            print("Truncated: Swarm dispersed!")
-        if agent_too_far.any().item():
-            too_far_agents = torch.where(agent_too_far)[0].cpu().numpy()
-            print(f"Truncated: Agents too far from start: {too_far_agents}")
-
-        terminateds = torch.full((self.n_agents,), goal_reached, device=self.device)
-        truncateds = (agent_too_far | max_steps_reached | swarm_dispersed )
-
-        self.last_target_distances = current_target_distances.clone()
-        return individual_rewards, terminateds, truncateds
-
+    
     def _check_collisions_torch(self) -> torch.Tensor:
         """Checks for collisions and returns a boolean tensor."""
         collisions_this_step = torch.zeros(self.n_agents, dtype=torch.bool, device=self.device)
@@ -439,3 +379,72 @@ class SwarmTorchEnv(EnvBase):
     def end_swarm_actions(self):
             for i, name in enumerate(self.drone_names):
                 self.client.cancelLastTask(vehicle_name=name)
+
+    def _compute_done_conditions(self, current_obs: TensorDict) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Computes termination and truncation conditions for the swarm.
+        
+        Returns:
+            terminateds: Boolean tensor (n_agents,) - True if goal reached (success)
+            truncateds: Boolean tensor (n_agents,) - True if episode failed or time limit
+        """
+        current_target_distances = current_obs["shared_observation", "target_distances"]
+        distance_matrix = current_obs["shared_observation", "inter_agent_distances"]
+        current_positions = current_obs["agents", "position"]
+        
+        # ========================================================================
+        # 1. MAX STEPS REACHED (Global truncation)
+        # ========================================================================
+        max_steps_reached = self.step_count >= self.config.max_steps
+        
+        # ========================================================================
+        # 2. SWARM DISPERSED (Global truncation)
+        # ========================================================================
+        swarm_dispersed = torch.tensor(False, device=self.device)
+        if self.n_agents > 1:
+            # Calculate mean inter-agent distance
+            upper_triangle_indices = torch.triu_indices(
+                self.n_agents, self.n_agents, offset=1, device=self.device
+            )
+            unique_distances = distance_matrix[upper_triangle_indices[0], upper_triangle_indices[1]]
+            mean_swarm_distance = unique_distances.mean()
+            swarm_dispersed = mean_swarm_distance > self.config.max_swarm_spread_distance
+        
+        # ========================================================================
+        # 3. GOAL REACHED (Global termination - SUCCESS)
+        # ========================================================================
+        # Goal is reached when swarm centroid is within threshold of target centroid
+        swarm_centroid = current_positions.mean(dim=0)  # Shape: (3,)
+        target_centroid = self.end_positions.mean(dim=0)  # Shape: (3,)
+        centroid_distance = torch.norm(swarm_centroid - target_centroid)
+        goal_reached = centroid_distance < self.config.goal_threshold
+        
+        # ========================================================================
+        # 4. AGENT TOO FAR (Per-agent truncation)
+        # ========================================================================
+        # Individual agents that strayed too far from their targets
+        agent_too_far = current_target_distances > (self.initial_target_distances * 3.0)
+        
+        # ========================================================================
+        # LOGGING (only when conditions trigger)
+        # ========================================================================
+        if goal_reached.item():
+            print(f"✅ Episode {len(self.episode_collision_log) + 1}: Goal reached! (centroid distance: {centroid_distance.item():.2f}m)")
+        if max_steps_reached.item():
+            print(f"⏱️  Episode {len(self.episode_collision_log) + 1}: Max steps reached ({self.config.max_steps})")
+        if swarm_dispersed.item():
+            print(f"💥 Episode {len(self.episode_collision_log) + 1}: Swarm dispersed (mean distance: {mean_swarm_distance.item():.2f}m)")
+        if agent_too_far.any().item():
+            too_far_agents = torch.where(agent_too_far)[0].cpu().numpy()
+            print(f"🚀 Episode {len(self.episode_collision_log) + 1}: Agents too far: {too_far_agents}")
+        
+        # ========================================================================
+        # FINAL DONE SIGNALS
+        # ========================================================================
+        # Terminated: successful completion (goal reached) - broadcast to all agents
+        terminateds = torch.full((self.n_agents,), goal_reached, device=self.device)
+        
+        # Truncated: failed or time limit (per-agent OR global conditions)
+        truncateds = (agent_too_far | max_steps_reached | swarm_dispersed)
+        
+        return terminateds, truncateds

@@ -16,23 +16,23 @@ class SwarmConfig:
     # Shared UAV parameters (used to create UAVConfig for each agent)
     action_type: str = "discrete"
     observation_img_size: Tuple[int, int] = (64, 64)
-    obstacle_threshold: float = 2.0
-    goal_threshold: float = 1.0
+    obstacle_threshold: float = 2.0 # Distance to consider for obstacle avoidance
+    goal_threshold: float = 5.0 # Distance to consider goal reached
     max_target_distance: Optional[float] = None
-    max_obstacle_distance: float = 50.0
+    max_obstacle_distance: float = 50.0 # Max distance to consider for obstacle observations, this is the limit of Distance sensor range
     
     # Position-related (can be auto-generated or provided)
     start_positions: Optional[List[Tuple[float, float, float]]] = None
     end_positions: Optional[List[Tuple[float, float, float]]] = None
     
     # Swarm-specific parameters
-    min_distance_threshold: float = 2.0
-    max_formation_distance: float = 50.0
+    min_distance_threshold: float = 2.0 # Minimum distance to consider for inter-agent distance calculations and front collision avoidance
+    max_swarm_spread_distance: float = 50.0 # Max Swarm Spread distance is defined as a multiplier from the initial mean distance between agents
     safety_penalty_weight: float = 0.7
     formation_bonus_weight: float = 1.0
     coordination_bonus_weight: float = 0.6
     max_safety_penalty: float = 1.2
-
+    max_delta_mean_swarm_distance: float = 4.0
     img_width: int = 64
     img_height: int = 64
 
@@ -59,7 +59,7 @@ class SwarmConfig:
         return x_leader, y_leader
     
     @classmethod
-    def _generate_inverted_v_positions(cls, n_agents: int, y_leader: int, x_leader: int, y_offset: float = 0.0, max_formation_distance: float = 20.0):
+    def _generate_inverted_v_positions(cls, n_agents: int, y_leader: int, x_leader: int, y_offset: float = 0.0, max_swarm_spread_distance: float = 20.0):
         """Generate positions for inverted V formation based on y_leader and y_offset, with improved distance control."""
         positions = []
         z = -20.0  # Fixed z-coordinate
@@ -99,7 +99,7 @@ class SwarmConfig:
             positions.append((x, y, z))
         
         # Post-generation check: Ensure no two agents are too far apart
-        cls._enforce_max_distance(positions, max_formation_distance)
+        cls._enforce_max_distance(positions, max_swarm_spread_distance)
         
         return positions
     
@@ -158,6 +158,7 @@ class SwarmConfig:
             reset_leader=reset_leader
         )
     
+    ##Method deprecated in favor of from_json
     def create_uav_configs(self) -> List[UAVConfig]:
         """Generate a list of UAVConfig instances for each agent."""
         if self.start_positions is None:
@@ -187,37 +188,42 @@ class SwarmConfig:
     
     def generate_positions(self) -> Tuple[List[Tuple[float, float, float]], List[Tuple[float, float, float]]]:
         """
-        Generate or return positions and dynamically update max_formation_distance.
+        Generate or return positions and dynamically update max_swarm_spread_distance.
         Random if reset_leader is set, otherwise fixed.
         """
         if self.reset_leader:
             # Generate random positions using reset_leader
             x_leader, y_leader = self.get_random_leader_positions(self.reset_leader)
             start_positions = self._generate_inverted_v_positions(self.n_agents, y_leader, x_leader, y_offset=0.0)
-            end_positions = self._generate_inverted_v_positions(self.n_agents, y_leader, x_leader, y_offset=-80.0)
+            
+            # Generate end positions with -80 offset on y-axis
+            end_positions = [(x, y - 80.0, z) for x, y, z in start_positions]
         else:
             # Return fixed positions
             if self.start_positions is None or self.end_positions is None:
                 raise ValueError("start_positions and end_positions must be set if reset_leader is not provided")
             start_positions, end_positions = self.start_positions, self.end_positions
 
-        # --- Dynamically update max_formation_distance ---
+        # --- Dynamically update max_swarm_spread_distance ---
         # 1. Create a distance matrix from the initial positions
         pos_array = np.array(start_positions)
         # Use broadcasting to compute pairwise squared distances: (N, 1, 3) - (1, N, 3) -> (N, N, 3)
         diff = pos_array[:, np.newaxis, :] - pos_array[np.newaxis, :, :]
         dist_matrix = np.sqrt(np.sum(diff**2, axis=-1))
-        
+        mean_distance = 0
         # Get the upper triangle of the matrix (excluding the diagonal) to get unique pairwise distances
         if self.n_agents > 1:
             upper_triangle_indices = np.triu_indices(self.n_agents, k=1)
             pairwise_distances = dist_matrix[upper_triangle_indices]
             
-            # 2. Set max_formation_distance to 2 * mean of pairwise distances
+            # 2. Set max_swarm_spread_distance to 2 * mean of pairwise distances
             mean_distance = pairwise_distances.mean()
-            self.max_formation_distance = 2.0 * mean_distance
+            self.max_swarm_spread_distance = self.max_delta_mean_swarm_distance * mean_distance 
         else:
             # If there's only one agent, set a default value
-            self.max_formation_distance = 1.0
-
+            self.max_swarm_spread_distance = 1.0
+        #print(f"Start positions: {start_positions}")
+        #print(f"End positions: {end_positions}")
+        #print(f"Mean distance: {mean_distance}")
+        #print(f"Max formation distance: {self.max_swarm_spread_distance}")
         return start_positions, end_positions

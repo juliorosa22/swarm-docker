@@ -20,10 +20,9 @@ RUN mkdir -p /home/torchrl/training && \
 
 # Expose default AirSim RPC port
 EXPOSE 41451
-
+RUN pip install msgpack-rpc-python
 # Install Python packages SYSTEM-WIDE
 RUN pip install tensordict \
-                msgpack-rpc-python \
                 airsim \
                 torchrl \
                 tqdm \

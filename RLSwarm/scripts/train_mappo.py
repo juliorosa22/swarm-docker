@@ -37,13 +37,13 @@ def main():
     swarm_config = SwarmConfig.from_json(json_path)
     n_agents = swarm_config.n_agents
     swarm_config.max_steps = 1000 # Longer episodes for meaningful collection
-    # Initialize environment directly (no GymWrapper needed)
+    
     env = SwarmTorchEnv(config=swarm_config, device=device,training_file=f"{base_name}_env_log.json")
-    #env = TransformedEnv(base_env, transform=RewardSum() )
-    #check_env_specs(base_env)
+    
     
     # --- Correctly derive single-agent specs from the environment ---
     single_agent_obs_spec = env.observation_spec["agents"]
+    
     # The critic observes the full shared state
     shared_observation_spec = env.observation_spec["shared_observation"]
     agent_group_action_spec = env.action_spec

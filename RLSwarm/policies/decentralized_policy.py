@@ -4,10 +4,10 @@ import torch.nn.functional as F
 from typing import Dict, Tuple
 from tensordict import TensorDict
 from tensordict.nn import TensorDictModule, TensorDictSequential
-from torchrl.modules import ProbabilisticActor, NormalParamExtractor
+from torchrl.modules import ProbabilisticActor, TanhNormal
 from helpers.features_extractors import CNNFeatureExtractor, VectorFeatureExtractor, AgentAttentionEncoder
 from torch.distributions import OneHotCategorical,Categorical, Normal 
-
+from tensordict.nn.distributions import NormalParamExtractor
 
 class FullPolicyModule(nn.Module):
     def __init__(self, cnn, vector_net, attention_encoder, policy_net, action_head):
@@ -21,7 +21,8 @@ class FullPolicyModule(nn.Module):
     
     def forward(self, agents_td):
         # agents_td is a tensordict where each entry has shape (n_agents, ...)
-        original_shape = agents_td.batch_size
+        batch_size = agents_td.batch_size
+        #print(f"Original agents_td batch size: {batch_size}")
         #print(f"Inspecting the tensordict in policy: {agents_td}")
         # --- Feature Extraction ---
         depth_image = agents_td.get("depth_image")
@@ -51,7 +52,13 @@ class FullPolicyModule(nn.Module):
         # Policy and action head
         policy_features = self.policy_net(combined_features)
         action_output = self.action_head(policy_features)
-        #print(f"Action output shape inside FullPolicyModule: {action_output.shape}")
+        if isinstance(self.action_head, NormalParamExtractor):
+            print("Normal Param Extractor detected")
+            loc, scale = self.action_head(policy_features)  # (n_agents, act_dim)
+        # add batch dim:
+            #loc = loc.view(*batch_size, self.n_agents, self.action_dim)
+            #scale = scale.view(*batch_size, self.n_agents, self.action_dim)
+            return loc, scale
         return action_output
 
 
@@ -72,6 +79,8 @@ class DecentralizedPolicy(nn.Module):
         
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.is_discrete = hasattr(action_spec, 'n')
+        #print(f"Action spec is discrete: {self.is_discrete}")
+        #print(f"Action spec : {self.action_spec}")
         self.action_spec = action_spec
         self.observation_spec = observation_spec
         self.hidden_dim = hidden_dim
@@ -97,14 +106,17 @@ class DecentralizedPolicy(nn.Module):
         env_action_key = [("agents", "action")]
         
         # Use torch.distributions.Categorical for discrete actions to get integer indices
-        dist_class = Categorical if self.is_discrete else Normal
-        
+        dist_class = Categorical if self.is_discrete else TanhNormal
+        distribution_kwargs = {} if self.is_discrete else {"low": self.action_spec.space.low, "high": self.action_spec.space.high}
+        #print(f"action spec: {self.action_spec}")
+        #print(f"env action key: {env_action_key}")
         self.policy = ProbabilisticActor(
             module=self.policy_module,
             in_keys=input_dist_param_keys,    # Use the nested keys for distribution params
             out_keys=env_action_key,    # Use the nested key for the final action
             spec=self.action_spec,      # The spec for the multi-agent action
             distribution_class=dist_class,
+            distribution_kwargs=distribution_kwargs,
             return_log_prob=True,
             safe=True
         ).to(self.device)
@@ -112,6 +124,7 @@ class DecentralizedPolicy(nn.Module):
     def forward(self, tensordict: TensorDict) -> TensorDict:
         # Delegate to ProbabilisticActor
         #rint(f"inside forward of policy:{tensordict}")
+        #print(f"tensordict batch: {tensordict.batch_size}")
         return self.policy(tensordict)
 
     def _define_layers(self):
@@ -153,5 +166,5 @@ class DecentralizedPolicy(nn.Module):
             self.action_head = nn.Linear(self.hidden_dim, action_dim).to(self.device)
         else:
             action_dim = self.action_spec.shape[-1]
-            self.action_head = NormalParamExtractor(self.hidden_dim, action_dim).to(self.device)
-        #print(f"#### Action head output dim: {self.action_head} ####")
+            self.action_head = NormalParamExtractor()
+        
