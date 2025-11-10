@@ -22,8 +22,7 @@ class FullPolicyModule(nn.Module):
     def forward(self, agents_td):
         # agents_td is a tensordict where each entry has shape (n_agents, ...)
         batch_size = agents_td.batch_size
-        #print(f"Original agents_td batch size: {batch_size}")
-        #print(f"Inspecting the tensordict in policy: {agents_td}")
+        
         # --- Feature Extraction ---
         depth_image = agents_td.get("depth_image")
         cnn_input = depth_image.reshape(-1, *depth_image.shape[-3:])
@@ -53,12 +52,11 @@ class FullPolicyModule(nn.Module):
         policy_features = self.policy_net(combined_features)
         action_output = self.action_head(policy_features)
         if isinstance(self.action_head, NormalParamExtractor):
-            print("Normal Param Extractor detected")
+            #print("Normal Param Extractor detected")
             loc, scale = self.action_head(policy_features)  # (n_agents, act_dim)
-        # add batch dim:
-            #loc = loc.view(*batch_size, self.n_agents, self.action_dim)
-            #scale = scale.view(*batch_size, self.n_agents, self.action_dim)
+            #print(f"Continous policy output shape - loc: {loc.shape}, scale: {scale.shape}")
             return loc, scale
+        #print(f"Discrete shape: {action_output.shape}")
         return action_output
 
 
@@ -122,18 +120,13 @@ class DecentralizedPolicy(nn.Module):
         ).to(self.device)
 
     def forward(self, tensordict: TensorDict) -> TensorDict:
-        # Delegate to ProbabilisticActor
-        #rint(f"inside forward of policy:{tensordict}")
-        #print(f"tensordict batch: {tensordict.batch_size}")
+        
         return self.policy(tensordict)
 
     def _define_layers(self):
         # Feature extractors
-        
         h, w = self.observation_spec["depth_image"].shape[-2:]
-        #print(f"image spec :{self.observation_spec['depth_image'].shape}")
         self.cnn = CNNFeatureExtractor(image_shape=(1, h, w)).to(self.device)
-        
         vector_dim = 0
         # This part now only computes the dimension for the agent's *local* vector state
         for key in ["position", "rotation", "velocity", "target_distance", "front_obs_distance"]:
@@ -152,19 +145,26 @@ class DecentralizedPolicy(nn.Module):
         combined_dim = self.cnn.output_dim + self.vector_net.output_dim + attention_embed_dim
         
         # Policy head (linear layers only)
-        # This module operates on a raw tensor inside FullPolicyModule, so it MUST be nn.Sequential.
-        self.policy_net = nn.Sequential(
-            nn.Linear(combined_dim, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.ReLU()
-        ).to(self.device)
-        
-        # Action head
+        #This stacked layers were adpated to change the last layer according to action type
+        stacked_layers=[nn.Linear(combined_dim, self.hidden_dim),
+                        nn.ReLU(),
+                        nn.Linear(self.hidden_dim, self.hidden_dim),
+                        nn.ReLU(),
+                    ]
         if self.is_discrete:
             action_dim = self.action_spec.n
+            #print(f"Action dim for discrete actions: {action_dim}")
             self.action_head = nn.Linear(self.hidden_dim, action_dim).to(self.device)
         else:
             action_dim = self.action_spec.shape[-1]
+            #print(f"Action dim for continuous actions: {action_dim}")
+            stacked_layers.append(nn.Linear(self.hidden_dim, 2*action_dim))
             self.action_head = NormalParamExtractor()
+        
+        self.policy_net = nn.Sequential(
+            *stacked_layers
+        ).to(self.device)
+        
+      
+        
         

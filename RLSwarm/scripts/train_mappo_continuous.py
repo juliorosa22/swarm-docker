@@ -47,6 +47,7 @@ def main():
     
     shared_observation_spec = env.observation_spec["shared_observation"]
     agent_group_action_spec = env.action_spec
+    #print(f"Script for Continuous MAPPO, env action spec: {agent_group_action_spec}")
     #print(f"Single-agent observation spec: {single_agent_obs_spec}")
     #print(f"Shared observation spec: {shared_observation_spec}")
     #print(f"Multi-agent action spec: {agent_group_action_spec.space.low}, {agent_group_action_spec.space.high}")
@@ -104,17 +105,17 @@ def main():
         clip_epsilon=0.2,
         c1=1.0,
         c2=0.01,
-        n_epochs=10,
-        batch_size=8,#64,
+        n_epochs=5,
+        batch_size=64,#64,
         n_agents=n_agents,
-        frames_per_batch=16, #4096 Increased for better learning
+        frames_per_batch=128, #4096 Increased for better learning
         model_name=base_name,
-        checkpoint_interval=1
+        checkpoint_interval=5
     )
 
     # --- Training Loop ---
-    total_frames = 100#2_000_000 # Set to a small number for a quick test
-    print(f"Starting MAPPO Discrete training with {n_agents} agents using SwarmTorchEnv...")
+    total_frames = 1000_000#2_000_000 # Set to a small number for a quick test
+    print(f"Starting MAPPO Continuous training with {n_agents} agents using SwarmTorchEnv...")
     try:
         mappo.train(total_frames)
         print("Training complete!")

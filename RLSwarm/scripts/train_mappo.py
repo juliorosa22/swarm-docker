@@ -47,7 +47,7 @@ def main():
     # The critic observes the full shared state
     shared_observation_spec = env.observation_spec["shared_observation"]
     agent_group_action_spec = env.action_spec
-
+    #print(f"Script for Discrete MAPPO, env action spec: {agent_group_action_spec}")
     # Initialize policy (shared weights across agents)
     # The policy's internal networks use the single-agent specs,
     # but the final ProbabilisticActor needs the full multi-agent spec to sample correctly.
