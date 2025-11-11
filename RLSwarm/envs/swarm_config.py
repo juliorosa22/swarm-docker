@@ -32,7 +32,7 @@ class SwarmConfig:
     formation_bonus_weight: float = 1.0
     coordination_bonus_weight: float = 0.6
     max_safety_penalty: float = 1.2
-    max_delta_mean_swarm_distance: float = 4.0
+    max_delta_mean_swarm_distance: float = 5.0
     img_width: int = 64
     img_height: int = 64
 
